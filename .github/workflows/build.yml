@@ -1,0 +1,54 @@
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Arm GNU Toolchain
+      uses: carlosperate/arm-none-eabi-gcc-action@v1
+      with:
+        release: 10.3-2021.10
+
+    - name: Setup Ninja
+      uses: seanmiddleditch/gha-setup-ninja@master
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install Python module
+      run: pip3 install --user -r requirements.txt
+
+    - name: Check versions
+      run: |
+        set -ex
+        echo $PATH
+        which arm-none-eabi-gcc
+        arm-none-eabi-gcc --version
+        which cmake
+        cmake --version
+        which ninja
+        ninja --version
+        which python
+        python --version
+
+    - name: Compile
+      run:  |
+        python tools/progen_compile.py -t cmake_gcc_arm -g ninja csk6_nanokit_bl csk6_nanokit_if
+        cp -v projectfiles/cmake_gcc_arm/*/build/*_crc.hex .
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware_${{ github.run_id }}
+        path: |
+          *.hex
