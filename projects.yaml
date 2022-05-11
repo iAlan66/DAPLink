@@ -623,6 +623,17 @@ projects:
         - *module_hic_stm32f103xb
         - records/board/ublox_evk_odin_w2.yaml
 
+    # LISTENAI projects
+    csk6_nanokit_bl:
+        - *module_bl
+        - records/hic_hal/stm32f103xb.yaml
+        - records/board/stm32f103xb_bl.yaml
+    csk6_nanokit_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/csk6_nanokit.yaml
+        - records/usb/usb-bulk.yaml
+
 
     # Test projects
     lpc55s69_nrf52840dk_test_if:

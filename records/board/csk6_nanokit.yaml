@@ -1,0 +1,11 @@
+common:
+    macros:
+        - USB_PROD_STR=LISTENAI CSK-6-NanoKit CMSIS-DAP
+        - CDC_ACM_DEFAULT_BAUDRATE=115200
+        - LISTENAI_NANOKIT
+    sources:
+        board:
+            - source/board/csk6_nanokit.c
+        family:
+            - source/family/listenai/csk6/target.c
+            - source/family/listenai/csk6/target_reset.c
