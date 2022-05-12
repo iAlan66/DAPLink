@@ -462,10 +462,17 @@ It is recommended to provide the following LEDs for status indication:
 */
 __STATIC_INLINE void LED_CONNECTED_OUT(uint32_t bit)
 {
+#ifdef LISTENAI_NANOKIT
+    if (bit & 1)
+        CONNECTED_LED_PORT->BSRR = CONNECTED_LED_PIN;// LED on
+    else
+        CONNECTED_LED_PORT->BRR = CONNECTED_LED_PIN; // LED off
+#else /* LISTENAI_NANOKIT */
     if (bit & 1)
         CONNECTED_LED_PORT->BRR = CONNECTED_LED_PIN; // LED on
     else
         CONNECTED_LED_PORT->BSRR = CONNECTED_LED_PIN;// LED off
+#endif /* LISTENAI_NANOKIT */
 }
 
 /** Debug Unit: Set status Target Running LED.
