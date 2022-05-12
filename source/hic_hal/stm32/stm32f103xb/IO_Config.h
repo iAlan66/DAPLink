@@ -29,12 +29,21 @@
 COMPILER_ASSERT(DAPLINK_HIC_ID == DAPLINK_HIC_ID_STM32F103XB);
 
 //USB control pin
+#ifdef LISTENAI_NANOKIT
+#define USB_CONNECT_PORT_ENABLE()    __HAL_RCC_GPIOB_CLK_ENABLE()
+#define USB_CONNECT_PORT_DISABLE()   __HAL_RCC_GPIOB_CLK_DISABLE()
+#define USB_CONNECT_PORT             GPIOB
+#define USB_CONNECT_PIN              GPIO_PIN_15
+#define USB_CONNECT_ON()             (USB_CONNECT_PORT->BRR  = USB_CONNECT_PIN)
+#define USB_CONNECT_OFF()            (USB_CONNECT_PORT->BSRR = USB_CONNECT_PIN)
+#else /* LISTENAI_NANOKIT */
 #define USB_CONNECT_PORT_ENABLE()    __HAL_RCC_GPIOA_CLK_ENABLE()
 #define USB_CONNECT_PORT_DISABLE()   __HAL_RCC_GPIOA_CLK_DISABLE()
 #define USB_CONNECT_PORT             GPIOA
 #define USB_CONNECT_PIN              GPIO_PIN_15
 #define USB_CONNECT_ON()             (USB_CONNECT_PORT->BSRR = USB_CONNECT_PIN)
 #define USB_CONNECT_OFF()            (USB_CONNECT_PORT->BRR  = USB_CONNECT_PIN)
+#endif /* LISTENAI_NANOKIT */
 
 //Connected LED
 #define CONNECTED_LED_PORT           GPIOB
@@ -42,9 +51,15 @@ COMPILER_ASSERT(DAPLINK_HIC_ID == DAPLINK_HIC_ID_STM32F103XB);
 #define CONNECTED_LED_PIN_Bit        6
 
 //When bootloader, disable the target port(not used)
+#ifdef LISTENAI_NANOKIT
+#define POWER_EN_PIN_PORT            GPIOB
+#define POWER_EN_PIN                 GPIO_PIN_8
+#define POWER_EN_Bit                 8
+#else /* LISTENAI_NANOKIT */
 #define POWER_EN_PIN_PORT            GPIOB
 #define POWER_EN_PIN                 GPIO_PIN_15
 #define POWER_EN_Bit                 15
+#endif /* LISTENAI_NANOKIT */
 
 // nRESET OUT Pin
 #define nRESET_PIN_PORT              GPIOB
