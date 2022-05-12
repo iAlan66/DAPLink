@@ -50,6 +50,13 @@
 #define UART_RTS_PORT                GPIOA
 #define UART_RTS_PIN                 GPIO_PIN_1
 
+// For CSK update
+#define CSK_BOOT_PORT                GPIOA
+#define CSK_BOOT_PIN                 GPIO_PIN_6
+
+#define CSK_RESET_PORT               GPIOB
+#define CSK_RESET_PIN                GPIO_PIN_0
+
 
 #define RX_OVRF_MSG         "<DAPLink:Overflow>\n"
 #define RX_OVRF_MSG_SIZE    (sizeof(RX_OVRF_MSG) - 1)
@@ -111,6 +118,19 @@ int32_t uart_initialize(void)
     GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
+
+    // CSK BOOT pin, open-drain low
+    HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = CSK_BOOT_PIN;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(CSK_BOOT_PORT, &GPIO_InitStructure);
+    // CSK RESET pin, open-drain low
+    HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = CSK_RESET_PIN;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(CSK_RESET_PORT, &GPIO_InitStructure);
 
     NVIC_EnableIRQ(CDC_UART_IRQn);
 
@@ -216,6 +236,10 @@ int32_t uart_get_configuration(UART_Configuration *config)
 
 void uart_set_control_line_state(uint16_t ctrl_bmp)
 {
+    uint8_t dtr = (ctrl_bmp >> 0) & 0x1;  // RESET
+    uint8_t rts = (ctrl_bmp >> 1) & 0x1;  // UPDATE
+    HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, dtr ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, rts ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
 int32_t uart_write_free(void)
