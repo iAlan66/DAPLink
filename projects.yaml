@@ -562,6 +562,7 @@ projects:
         - *module_if
         - *module_hic_stm32f103xb
         - records/board/stm32f103rb.yaml
+        - records/usb/usb-bulk.yaml
     stm32f103xb_stm32f207zg_if:
         - *module_if
         - *module_hic_stm32f103xb
