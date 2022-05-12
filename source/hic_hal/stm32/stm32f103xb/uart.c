@@ -38,6 +38,16 @@
 #define UART_PINS_PORT_ENABLE()      __HAL_RCC_GPIOA_CLK_ENABLE()
 #define UART_PINS_PORT_DISABLE()     __HAL_RCC_GPIOA_CLK_DISABLE()
 
+// For CSK update
+#define CDC_UART2                    USART3
+#define CDC_UART2_ENABLE()           __HAL_RCC_USART3_CLK_ENABLE()
+#define CDC_UART2_DISABLE()          __HAL_RCC_USART3_CLK_DISABLE()
+#define CDC_UART2_IRQn               USART3_IRQn
+#define CDC_UART2_IRQn_Handler       USART3_IRQHandler
+
+#define UART2_PINS_PORT_ENABLE()     __HAL_RCC_GPIOB_CLK_ENABLE()
+#define UART2_PINS_PORT_DISABLE()    __HAL_RCC_GPIOB_CLK_DISABLE()
+
 #define UART_TX_PORT                 GPIOA
 #define UART_TX_PIN                  GPIO_PIN_2
 
@@ -57,10 +67,18 @@
 #define CSK_RESET_PORT               GPIOB
 #define CSK_RESET_PIN                GPIO_PIN_0
 
+#define UART2_TX_PORT                GPIOB
+#define UART2_TX_PIN                 GPIO_PIN_10
+
+#define UART2_RX_PORT                GPIOB
+#define UART2_RX_PIN                 GPIO_PIN_11
+
 
 #define RX_OVRF_MSG         "<DAPLink:Overflow>\n"
 #define RX_OVRF_MSG_SIZE    (sizeof(RX_OVRF_MSG) - 1)
 #define BUFFER_SIZE         (512)
+
+uint8_t update_mode = 0;
 
 circ_buf_t write_buffer;
 uint8_t write_buffer_data[BUFFER_SIZE];
@@ -90,10 +108,13 @@ int32_t uart_initialize(void)
     GPIO_InitTypeDef GPIO_InitStructure;
 
     CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
     clear_buffers();
 
     CDC_UART_ENABLE();
     UART_PINS_PORT_ENABLE();
+    CDC_UART2_ENABLE();
+    UART2_PINS_PORT_ENABLE();
 
     //TX pin
     GPIO_InitStructure.Pin = UART_TX_PIN;
@@ -119,6 +140,17 @@ int32_t uart_initialize(void)
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
 
+    // TX pin
+    GPIO_InitStructure.Pin = UART2_TX_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
+    HAL_GPIO_Init(UART2_TX_PORT, &GPIO_InitStructure);
+    // RX pin
+    GPIO_InitStructure.Pin = UART2_RX_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(UART2_RX_PORT, &GPIO_InitStructure);
     // CSK BOOT pin, open-drain low
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, GPIO_PIN_SET);
     GPIO_InitStructure.Pin = CSK_BOOT_PIN;
@@ -133,6 +165,7 @@ int32_t uart_initialize(void)
     HAL_GPIO_Init(CSK_RESET_PORT, &GPIO_InitStructure);
 
     NVIC_EnableIRQ(CDC_UART_IRQn);
+    NVIC_EnableIRQ(CDC_UART2_IRQn);
 
     return 1;
 }
@@ -140,6 +173,7 @@ int32_t uart_initialize(void)
 int32_t uart_uninitialize(void)
 {
     CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
     clear_buffers();
     return 1;
 }
@@ -147,15 +181,19 @@ int32_t uart_uninitialize(void)
 int32_t uart_reset(void)
 {
     const uint32_t cr1 = CDC_UART->CR1;
+    const uint32_t cr21 = CDC_UART2->CR1;
     CDC_UART->CR1 = cr1 & ~(USART_IT_TXE | USART_IT_RXNE);
+    CDC_UART2->CR1 = cr21 & ~(USART_IT_TXE | USART_IT_RXNE);
     clear_buffers();
     CDC_UART->CR1 = cr1 & ~USART_IT_TXE;
+    CDC_UART2->CR1 = cr21 & ~USART_IT_TXE;
     return 1;
 }
 
 int32_t uart_set_configuration(UART_Configuration *config)
 {
     UART_HandleTypeDef uart_handle;
+    UART_HandleTypeDef uart_handle2;
     HAL_StatusTypeDef status;
 
     memset(&uart_handle, 0, sizeof(uart_handle));
@@ -207,8 +245,12 @@ int32_t uart_set_configuration(UART_Configuration *config)
     // TX and RX
     uart_handle.Init.Mode = UART_MODE_TX_RX;
     
+    memcpy(&uart_handle2, &uart_handle, sizeof(uart_handle));
+    uart_handle2.Instance = CDC_UART2;
+
     // Disable uart and tx/rx interrupt
     CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
 
     clear_buffers();
 
@@ -218,7 +260,14 @@ int32_t uart_set_configuration(UART_Configuration *config)
     util_assert(HAL_OK == status);
     (void)status;
 
+    status = HAL_UART_DeInit(&uart_handle2);
+    util_assert(HAL_OK == status);
+    status = HAL_UART_Init(&uart_handle2);
+    util_assert(HAL_OK == status);
+    (void)status;
+
     CDC_UART->CR1 |= USART_IT_RXNE;
+    CDC_UART2->CR1 |= USART_IT_RXNE;
 
     return 1;
 }
@@ -240,6 +289,7 @@ void uart_set_control_line_state(uint16_t ctrl_bmp)
     uint8_t rts = (ctrl_bmp >> 1) & 0x1;  // UPDATE
     HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, dtr ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, rts ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    update_mode = rts;
 }
 
 int32_t uart_write_free(void)
@@ -250,7 +300,11 @@ int32_t uart_write_free(void)
 int32_t uart_write_data(uint8_t *data, uint16_t size)
 {
     uint32_t cnt = circ_buf_write(&write_buffer, data, size);
-    CDC_UART->CR1 |= USART_IT_TXE;
+    if (update_mode) {
+        CDC_UART2->CR1 |= USART_IT_TXE;
+    } else {
+        CDC_UART->CR1 |= USART_IT_TXE;
+    }
 
     return cnt;
 }
@@ -281,6 +335,31 @@ void CDC_UART_IRQn_Handler(void)
             CDC_UART->DR = circ_buf_pop(&write_buffer);
         } else {
             CDC_UART->CR1 &= ~USART_IT_TXE;
+        }
+    }
+}
+
+void CDC_UART2_IRQn_Handler(void)
+{
+    const uint32_t sr = CDC_UART2->SR;
+
+    if (sr & USART_SR_RXNE) {
+        uint8_t dat = CDC_UART2->DR;
+        uint32_t free = circ_buf_count_free(&read_buffer);
+        if (free > RX_OVRF_MSG_SIZE) {
+            circ_buf_push(&read_buffer, dat);
+        } else if (RX_OVRF_MSG_SIZE == free) {
+            circ_buf_write(&read_buffer, (uint8_t*)RX_OVRF_MSG, RX_OVRF_MSG_SIZE);
+        } else {
+            // Drop character
+        }
+    }
+
+    if (sr & USART_SR_TXE) {
+        if (circ_buf_count_used(&write_buffer) > 0) {
+            CDC_UART2->DR = circ_buf_pop(&write_buffer);
+        } else {
+            CDC_UART2->CR1 &= ~USART_IT_TXE;
         }
     }
 }
