@@ -482,7 +482,14 @@ __STATIC_INLINE void LED_CONNECTED_OUT(uint32_t bit)
 */
 __STATIC_INLINE void LED_RUNNING_OUT(uint32_t bit)
 {
+#ifdef LISTENAI_NANOKIT
+    if (bit & 1)
+        RUNNING_LED_PORT->BSRR = CONNECTED_LED_PIN;// LED on
+    else
+        RUNNING_LED_PORT->BRR = CONNECTED_LED_PIN; // LED off
+#else /* LISTENAI_NANOKIT */
     ;             // Not available
+#endif /* LISTENAI_NANOKIT */
 }
 
 ///@}
