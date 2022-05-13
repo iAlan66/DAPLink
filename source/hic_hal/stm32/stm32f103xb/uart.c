@@ -78,6 +78,9 @@
 #define RX_OVRF_MSG_SIZE    (sizeof(RX_OVRF_MSG) - 1)
 #define BUFFER_SIZE         (512)
 
+#define CTRL_DTR_BIT        (1 << 0)
+#define CTRL_RTS_BIT        (1 << 1)
+
 uint8_t update_mode = 0;
 
 circ_buf_t write_buffer;
@@ -285,11 +288,13 @@ int32_t uart_get_configuration(UART_Configuration *config)
 
 void uart_set_control_line_state(uint16_t ctrl_bmp)
 {
-    uint8_t dtr = (ctrl_bmp >> 0) & 0x1;  // RESET
-    uint8_t rts = (ctrl_bmp >> 1) & 0x1;  // UPDATE
-    HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, dtr ? GPIO_PIN_RESET : GPIO_PIN_SET);
-    HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, rts ? GPIO_PIN_RESET : GPIO_PIN_SET);
-    update_mode = rts;
+    // Some host may pull both RTS and DTR down by default. Thus only trust the
+    // level when RTS and DTR are different.
+    uint8_t reset = (ctrl_bmp & (CTRL_DTR_BIT | CTRL_RTS_BIT)) == CTRL_RTS_BIT;
+    uint8_t boot = (ctrl_bmp & (CTRL_DTR_BIT | CTRL_RTS_BIT)) == CTRL_DTR_BIT;
+    HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, reset ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, boot ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    update_mode = boot;
 }
 
 int32_t uart_write_free(void)
