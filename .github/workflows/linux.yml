@@ -72,9 +72,9 @@ jobs:
     - name: Compile
       run:  |
         export PATH="/usr/lib/ccache:${{ runner.temp }}/arm-gcc/bin/:/home/runner/.local/bin:$PATH"
-        python tools/progen_compile.py stm32f103xb_csk6_nanokit_if
-        (ls -lR firmware_*; ccache -s; arm-none-eabi-gcc -v) | tee log.txt
-        cp projectfiles/make_gcc_arm/*/build/*.{bin,hex} .
+        python tools/progen_compile.py -t cmake_gcc_arm -g ninja stm32f103xb_csk6_nanokit_if
+        (ccache -s; arm-none-eabi-gcc -v) | tee log.txt
+        cp projectfiles/cmake_gcc_arm/*/build/*.{bin,hex} .
 
     - name: Upload test artifacts
       uses: actions/upload-artifact@v2
