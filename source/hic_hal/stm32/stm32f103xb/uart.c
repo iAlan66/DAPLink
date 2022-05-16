@@ -106,6 +106,78 @@ static void clear_buffers(void)
     circ_buf_init(&read_buffer, read_buffer_data, sizeof(read_buffer_data));
 }
 
+void uart2_set_configuration(uint32_t baud_rate)
+{
+    UART_HandleTypeDef uart_handle;
+
+    memset(&uart_handle, 0, sizeof(uart_handle));
+    uart_handle.Instance = CDC_UART2;
+    uart_handle.Init.Parity = HAL_UART_PARITY_NONE;
+    uart_handle.Init.StopBits = UART_STOPBITS_1;
+    uart_handle.Init.WordLength = UART_WORDLENGTH_8B;
+    uart_handle.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
+    uart_handle.Init.BaudRate = baud_rate;
+    uart_handle.Init.Mode = UART_MODE_TX_RX;
+
+    // Disable uart and tx/rx interrupt
+    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+
+    HAL_UART_DeInit(&uart_handle);
+    HAL_UART_Init(&uart_handle);
+
+    CDC_UART2->CR1 |= USART_IT_RXNE;
+}
+
+void uart2_enable(void)
+{
+    CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+    NVIC_DisableIRQ(CDC_UART_IRQn);
+
+    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.Pin = UART2_TX_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(UART2_TX_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = UART2_RX_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(UART2_RX_PORT, &GPIO_InitStructure);
+
+    NVIC_EnableIRQ(CDC_UART2_IRQn);
+
+    uart2_set_configuration(115200);
+}
+
+void uart2_disable(void)
+{
+    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+    NVIC_DisableIRQ(CDC_UART2_IRQn);
+
+    UART_HandleTypeDef uart_handle;
+    memset(&uart_handle, 0, sizeof(uart_handle));
+    uart_handle.Instance = CDC_UART2;
+    HAL_UART_DeInit(&uart_handle);
+
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.Pin = UART2_TX_PIN;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(UART2_TX_PORT, &GPIO_InitStructure);
+    HAL_GPIO_WritePin(UART2_TX_PORT, UART2_TX_PIN, GPIO_PIN_RESET);
+    GPIO_InitStructure.Pin = UART2_RX_PIN;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(UART2_RX_PORT, &GPIO_InitStructure);
+    HAL_GPIO_WritePin(UART2_RX_PORT, UART2_RX_PIN, GPIO_PIN_RESET);
+
+    CDC_UART->CR1 &= ~USART_IT_TXE;
+    NVIC_EnableIRQ(CDC_UART_IRQn);
+}
+
 int32_t uart_initialize(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
@@ -143,17 +215,6 @@ int32_t uart_initialize(void)
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
 
-    // TX pin
-    GPIO_InitStructure.Pin = UART2_TX_PIN;
-    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
-    GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
-    HAL_GPIO_Init(UART2_TX_PORT, &GPIO_InitStructure);
-    // RX pin
-    GPIO_InitStructure.Pin = UART2_RX_PIN;
-    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
-    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStructure.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(UART2_RX_PORT, &GPIO_InitStructure);
     // CSK BOOT pin, open-drain low
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, GPIO_PIN_SET);
     GPIO_InitStructure.Pin = CSK_BOOT_PIN;
@@ -168,7 +229,6 @@ int32_t uart_initialize(void)
     HAL_GPIO_Init(CSK_RESET_PORT, &GPIO_InitStructure);
 
     NVIC_EnableIRQ(CDC_UART_IRQn);
-    NVIC_EnableIRQ(CDC_UART2_IRQn);
 
     return 1;
 }
@@ -196,8 +256,12 @@ int32_t uart_reset(void)
 int32_t uart_set_configuration(UART_Configuration *config)
 {
     UART_HandleTypeDef uart_handle;
-    UART_HandleTypeDef uart_handle2;
     HAL_StatusTypeDef status;
+
+    if (update_mode) {
+        uart2_set_configuration(config->Baudrate);
+        return 1;
+    }
 
     memset(&uart_handle, 0, sizeof(uart_handle));
     uart_handle.Instance = CDC_UART;
@@ -248,12 +312,8 @@ int32_t uart_set_configuration(UART_Configuration *config)
     // TX and RX
     uart_handle.Init.Mode = UART_MODE_TX_RX;
     
-    memcpy(&uart_handle2, &uart_handle, sizeof(uart_handle));
-    uart_handle2.Instance = CDC_UART2;
-
     // Disable uart and tx/rx interrupt
     CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
-    CDC_UART2->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
 
     clear_buffers();
 
@@ -263,14 +323,7 @@ int32_t uart_set_configuration(UART_Configuration *config)
     util_assert(HAL_OK == status);
     (void)status;
 
-    status = HAL_UART_DeInit(&uart_handle2);
-    util_assert(HAL_OK == status);
-    status = HAL_UART_Init(&uart_handle2);
-    util_assert(HAL_OK == status);
-    (void)status;
-
     CDC_UART->CR1 |= USART_IT_RXNE;
-    CDC_UART2->CR1 |= USART_IT_RXNE;
 
     return 1;
 }
@@ -294,6 +347,11 @@ void uart_set_control_line_state(uint16_t ctrl_bmp)
     uint8_t boot = (ctrl_bmp & (CTRL_DTR_BIT | CTRL_RTS_BIT)) == CTRL_DTR_BIT;
     HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, reset ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, boot ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    if (update_mode && !boot) {
+        uart2_disable();
+    } else if (!update_mode && boot) {
+        uart2_enable();
+    }
     update_mode = boot;
 }
 
