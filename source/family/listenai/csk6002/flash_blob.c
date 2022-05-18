@@ -183,7 +183,7 @@ static const program_target_t flash = {
     0x20000061, // EraseChip
     0x20000091, // EraseSector
     0x200000d1, // ProgramPage
-    0, // Verify
+    0x20000131, // Verify
 
     // BKPT : start of blob + 1
     // RSB  : blob start + header + rw data offset
@@ -203,5 +203,7 @@ static const program_target_t flash = {
     // address of prog_blob
     Venus_flashloader_flash_prog_blob,
     // ram_to_flash_bytes_to_be_written
-    0x00001000
+    0x00001000,
+    // algo_flags
+    kAlgoVerifyReturnsAddress
 };
