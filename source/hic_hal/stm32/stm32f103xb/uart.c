@@ -57,8 +57,11 @@
 #define UART_CTS_PORT                GPIOA
 #define UART_CTS_PIN                 GPIO_PIN_0
 
-#define UART_RTS_PORT                GPIOA
-#define UART_RTS_PIN                 GPIO_PIN_1
+#define UART_RTS_PORT                GPIOB
+#define UART_RTS_PIN                 GPIO_PIN_3
+
+#define UART_DTR_PORT                GPIOB
+#define UART_DTR_PIN                 GPIO_PIN_4
 
 // For CSK update
 #define CSK_BOOT_PORT                GPIOA
@@ -209,11 +212,17 @@ int32_t uart_initialize(void)
     GPIO_InitStructure.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(UART_CTS_PORT, &GPIO_InitStructure);
     //RTS pin, output low
-    HAL_GPIO_WritePin(UART_RTS_PORT, UART_RTS_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(UART_RTS_PORT, UART_RTS_PIN, GPIO_PIN_SET);
     GPIO_InitStructure.Pin = UART_RTS_PIN;
     GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
+    //DTR pin, output low
+    HAL_GPIO_WritePin(UART_DTR_PORT, UART_DTR_PIN, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = UART_DTR_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(UART_DTR_PORT, &GPIO_InitStructure);
 
     // CSK BOOT pin, open-drain low
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, GPIO_PIN_SET);
@@ -341,10 +350,15 @@ int32_t uart_get_configuration(UART_Configuration *config)
 
 void uart_set_control_line_state(uint16_t ctrl_bmp)
 {
+    uint8_t rts = ctrl_bmp & CTRL_RTS_BIT;
+    uint8_t dtr = ctrl_bmp & CTRL_DTR_BIT;
+    HAL_GPIO_WritePin(UART_RTS_PORT, UART_RTS_PIN, rts ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    HAL_GPIO_WritePin(UART_DTR_PORT, UART_DTR_PIN, dtr ? GPIO_PIN_RESET : GPIO_PIN_SET);
+
     // Some host may pull both RTS and DTR down by default. Thus only trust the
     // level when RTS and DTR are different.
-    uint8_t reset = (ctrl_bmp & (CTRL_DTR_BIT | CTRL_RTS_BIT)) == CTRL_RTS_BIT;
-    uint8_t boot = (ctrl_bmp & (CTRL_DTR_BIT | CTRL_RTS_BIT)) == CTRL_DTR_BIT;
+    uint8_t reset = rts && !dtr;
+    uint8_t boot = dtr && !rts;
     HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, reset ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, boot ? GPIO_PIN_RESET : GPIO_PIN_SET);
     if (update_mode && !boot) {
