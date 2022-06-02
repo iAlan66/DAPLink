@@ -27,6 +27,7 @@
 #include "util.h"
 #include "circ_buf.h"
 #include "IO_Config.h"
+#include "cmsis_os2.h"
 
 // For usart
 #define CDC_UART                     USART2
@@ -85,6 +86,7 @@
 #define CTRL_RTS_BIT        (1 << 1)
 
 uint8_t update_mode = 0;
+uint8_t last_dtr = 0;
 
 circ_buf_t write_buffer;
 uint8_t write_buffer_data[BUFFER_SIZE];
@@ -355,11 +357,10 @@ void uart_set_control_line_state(uint16_t ctrl_bmp)
     HAL_GPIO_WritePin(UART_RTS_PORT, UART_RTS_PIN, rts ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(UART_DTR_PORT, UART_DTR_PIN, dtr ? GPIO_PIN_RESET : GPIO_PIN_SET);
 
+    // Boot pin and USART3 (for update_mode) are controlled by RTS
     // Some host may pull both RTS and DTR down by default. Thus only trust the
     // level when RTS and DTR are different.
-    uint8_t reset = rts && !dtr;
-    uint8_t boot = dtr && !rts;
-    HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, reset ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    uint8_t boot = rts && !dtr;
     HAL_GPIO_WritePin(CSK_BOOT_PORT, CSK_BOOT_PIN, boot ? GPIO_PIN_RESET : GPIO_PIN_SET);
     if (update_mode && !boot) {
         uart2_disable();
@@ -367,6 +368,16 @@ void uart_set_control_line_state(uint16_t ctrl_bmp)
         uart2_enable();
     }
     update_mode = boot;
+
+    // Reset pin is controlled by DTR
+    // Some host may pull DTR down by default, so we need to perform the reset
+    // only when a rising edge is detected.
+    if (last_dtr && !dtr) {
+        HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, GPIO_PIN_RESET);
+        osDelay(2);
+        HAL_GPIO_WritePin(CSK_RESET_PORT, CSK_RESET_PIN, GPIO_PIN_SET);
+    }
+    last_dtr = dtr;
 }
 
 int32_t uart_write_free(void)
