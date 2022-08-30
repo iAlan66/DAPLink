@@ -1,6 +1,6 @@
 /**
  * @file    target_reset.c
- * @brief   Target reset for the CSK6002
+ * @brief   Target reset for the CSK6
  *
  * DAPLink Interface Firmware
  * Copyright (c) 2022 Anhui LISTENAI Co., Ltd.
@@ -22,10 +22,10 @@
 #include "swd_host.h"
 #include "target_family.h"
 
-const target_family_descriptor_t g_target_family_csk6002 = {
+const target_family_descriptor_t g_target_family_csk6 = {
     .family_id = kStub_SWVectReset_FamilyID,
     .default_reset_type = kSoftwareReset,
     .soft_reset_type = VECTRESET,
 };
 
-const target_family_descriptor_t *g_target_family = &g_target_family_csk6002;
+const target_family_descriptor_t *g_target_family = &g_target_family_csk6;

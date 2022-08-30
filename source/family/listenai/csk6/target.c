@@ -1,6 +1,6 @@
 /**
  * @file    target.c
- * @brief   Target information for the CSK6002
+ * @brief   Target information for the CSK6
  *
  * DAPLink Interface Firmware
  * Copyright (c) 2022 Anhui LISTENAI Co., Ltd.
@@ -36,5 +36,5 @@ target_cfg_t target_device = {
     .ram_regions[0].start           = 0x00080000,
     .ram_regions[0].end             = 0x000d0000,
     .target_vendor                  = "LISTENAI",
-    .target_part_number             = "CSK6002",
+    .target_part_number             = "CSK6",
 };

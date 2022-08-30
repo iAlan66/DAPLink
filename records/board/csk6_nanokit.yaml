@@ -6,5 +6,5 @@ common:
         board:
             - source/board/csk6_nanokit.c
         family:
-            - source/family/listenai/csk6002/target.c
-            - source/family/listenai/csk6002/target_reset.c
+            - source/family/listenai/csk6/target.c
+            - source/family/listenai/csk6/target_reset.c
