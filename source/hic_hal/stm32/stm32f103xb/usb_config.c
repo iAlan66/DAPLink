@@ -353,8 +353,13 @@
 #define USBD_CDC_ACM_HS_BINTERVAL1      0
 #define USBD_CDC_ACM_CIF_STRDESC        L"mbed Serial Port"
 #define USBD_CDC_ACM_DIF_STRDESC        L"mbed Serial Port"
+#ifdef LISTENAI_NANOKIT
+#define USBD_CDC_ACM_SENDBUF_SIZE       512
+#define USBD_CDC_ACM_RECEIVEBUF_SIZE    512
+#else /* LISTENAI_NANOKIT */
 #define USBD_CDC_ACM_SENDBUF_SIZE       64
 #define USBD_CDC_ACM_RECEIVEBUF_SIZE    64
+#endif /* LISTENAI_NANOKIT */
 #if (((USBD_CDC_ACM_HS_ENABLE1) && (USBD_CDC_ACM_SENDBUF_SIZE    < USBD_CDC_ACM_HS_WMAXPACKETSIZE1)) || (USBD_CDC_ACM_SENDBUF_SIZE    < USBD_CDC_ACM_WMAXPACKETSIZE1))
 #error "Send Buffer size must be larger or equal to Bulk In maximum packet size!"
 #endif
