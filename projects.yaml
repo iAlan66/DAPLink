@@ -25,7 +25,6 @@ module:
     if: &module_if
         - *module_tools
         - records/usb/usb-core.yaml
-        - records/usb/usb-msc.yaml
         - records/usb/usb-cdc.yaml
         - records/usb/usb-webusb.yaml
         - records/usb/usb-winusb.yaml
