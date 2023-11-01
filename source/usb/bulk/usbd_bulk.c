@@ -25,6 +25,8 @@
 #include "usb_for_lib.h"
 #include "util.h"
 #include "DAP_queue.h"
+#include "daplink.h"
+#include DAPLINK_MAIN_HEADER
 
 static U8 *ptrDataIn;
 static U16 DataInReceLen;
