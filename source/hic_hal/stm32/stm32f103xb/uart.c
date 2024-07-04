@@ -169,15 +169,13 @@ void uart2_disable(void)
 
     GPIO_InitTypeDef GPIO_InitStructure;
     GPIO_InitStructure.Pin = UART2_TX_PIN;
-    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
     GPIO_InitStructure.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(UART2_TX_PORT, &GPIO_InitStructure);
-    HAL_GPIO_WritePin(UART2_TX_PORT, UART2_TX_PIN, GPIO_PIN_RESET);
     GPIO_InitStructure.Pin = UART2_RX_PIN;
-    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
     GPIO_InitStructure.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(UART2_RX_PORT, &GPIO_InitStructure);
-    HAL_GPIO_WritePin(UART2_RX_PORT, UART2_RX_PIN, GPIO_PIN_RESET);
 
     CDC_UART->CR1 &= ~USART_IT_TXE;
     NVIC_EnableIRQ(CDC_UART_IRQn);
