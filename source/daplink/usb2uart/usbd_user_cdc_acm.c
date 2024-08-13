@@ -114,6 +114,7 @@ int32_t USBD_CDC_ACM_PortGetLineCoding(CDC_LINE_CODING *line_coding)
 static U32 start_break_time = 0;
 int32_t USBD_CDC_ACM_SendBreak(uint16_t dur)
 {
+#if 0
     uint32_t end_break_time;
 #ifdef DRAG_N_DROP_SUPPORT
     if (!flash_intf_target->flash_busy())
@@ -134,6 +135,7 @@ int32_t USBD_CDC_ACM_SendBreak(uint16_t dur)
             }
         }
     }
+#endif
     return (1);
 }
 
