@@ -2,6 +2,8 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -45,6 +47,7 @@ jobs:
       run:  |
         python tools/progen_compile.py -t cmake_gcc_arm -g ninja csk6_nanokit_bl csk6_nanokit_if
         cp -v projectfiles/cmake_gcc_arm/*/build/*_crc.hex .
+        python tools/mergehex.py -o csk6_nanokit_factory_all.hex csk6_nanokit_bl_crc.hex csk6_nanokit_if_crc.hex
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -52,3 +55,29 @@ jobs:
         name: firmware_${{ github.run_id }}
         path: |
           *.hex
+
+  publish:
+    needs: build
+    if: github.event_name == 'release'
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: firmware_*
+        path: firmware/
+        merge-multiple: true
+
+    - name: Rename assets
+      run: |
+        for f in firmware/*.hex; do
+          mv $f ${f%.hex}_${{ github.event.release.tag_name }}.hex
+        done
+
+    - name: Upload assets to release
+      uses: csexton/release-asset-action@v3
+      with:
+        pattern: firmware/*
+        github-token: ${{ secrets.GITHUB_TOKEN }}
